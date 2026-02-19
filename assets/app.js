@@ -117,50 +117,80 @@ function checkoutToWhatsApp(){
   const lines = items.map(it => {
     const sub = it.qty * it.price;
     total += sub;
-    const unit = it.unit ? ` ${it.unit}` : "";
-    return `- ${it.qty} x ${it.name}${unit} (${money(it.price)}) = ${money(sub)}`;
+    return `• ${it.qty} x ${it.name} (${money(it.price)}${it.unit ? " " + it.unit : ""}) = ${money(sub)}`;
   });
 
   const msg =
-`Hola! Quiero hacer este pedido en Mariscos Express 365:
+`Hola! Quiero hacer un pedido:
+
 ${lines.join("\n")}
+
 Total: ${money(total)}
 
 Nombre:
-Para: (delivery / recoger)
-Ubicacion:
-`;
+Dirección / zona:
+Hora preferida:`;
 
   const link = waLink(msg);
-  if(link) window.location.href = link;
+  if(link) window.open(link, "_blank");
 }
 
-// ========= SOCIAL LINKS WIRING =========
-function wireSocialLinks(){
-  const fb = byId("fbCircle");
-  const ig = byId("igCircle");
-  const wa = byId("waCircle");
-
-  if(fb && CONFIG.facebookUrl) fb.href = CONFIG.facebookUrl;
-  if(ig && CONFIG.instagramUrl) ig.href = CONFIG.instagramUrl;
-
-  // WhatsApp: default message (simple)
-  if(wa){
-    const msg = "Hola! Quiero hacer un pedido en Mariscos Express 365.";
-    const link = waLink(msg);
-    if(link) wa.href = link;
-  }
+function quickOrderMessage(){
+  return `Hola! Quiero hacer un pedido. ¿Me puedes confirmar cobertura y tiempo de entrega?`;
 }
 
-// ========= HEADER + CART DRAWER =========
+// ========= NAV ACTIVE =========
 function setActiveNav(){
   const p = pageName();
   document.querySelectorAll('nav a[data-page]').forEach(a => {
     const target = a.getAttribute("data-page");
     a.classList.toggle("active", target === p);
   });
+
+  // Also highlight in mobile menu
+  document.querySelectorAll('.mobileNav a[data-page]').forEach(a => {
+    const target = a.getAttribute("data-page");
+    a.classList.toggle("active", target === p);
+  });
 }
 
+// ========= MOBILE MENU =========
+function setupMobileMenu(){
+  const menuBtn = byId("menuBtn");
+  const mobileNav = byId("mobileNav");
+  const navOverlay = byId("navOverlay");
+
+  if(!menuBtn || !mobileNav || !navOverlay) return;
+
+  function openMenu(){
+    mobileNav.classList.add("open");
+    navOverlay.classList.add("show");
+    menuBtn.setAttribute("aria-expanded", "true");
+    document.body.classList.add("noScroll");
+  }
+  function closeMenu(){
+    mobileNav.classList.remove("open");
+    navOverlay.classList.remove("show");
+    menuBtn.setAttribute("aria-expanded", "false");
+    document.body.classList.remove("noScroll");
+  }
+  function toggleMenu(){
+    mobileNav.classList.contains("open") ? closeMenu() : openMenu();
+  }
+
+  menuBtn.addEventListener("click", toggleMenu);
+  navOverlay.addEventListener("click", closeMenu);
+
+  mobileNav.addEventListener("click", (e) => {
+    if(e.target.closest("a")) closeMenu();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if(e.key === "Escape") closeMenu();
+  });
+}
+
+// ========= HEADER + CART DRAWER =========
 function injectShell(){
   const shell = byId("shell");
   if(!shell) return;
@@ -195,6 +225,10 @@ function injectShell(){
           </nav>
 
           <div class="actions">
+            <button class="menuBtn" id="menuBtn" type="button" aria-label="Abrir menú" aria-expanded="false">
+              ☰
+            </button>
+
             <button class="btn primary cartBtn" id="openCartBtn" type="button" aria-label="Abrir carrito">
               🛒 Carrito
               <span class="cartCount" id="cartCount">0</span>
@@ -203,6 +237,14 @@ function injectShell(){
         </div>
       </div>
     </header>
+
+    <!-- Mobile menu overlay + panel -->
+    <div class="navOverlay" id="navOverlay"></div>
+    <div class="mobileNav" id="mobileNav" aria-label="Menú móvil">
+      <a href="index.html" data-page="index.html" data-link>Inicio</a>
+      <a href="products.html" data-page="products.html" data-link>Productos</a>
+      <a href="locations.html" data-page="locations.html" data-link>Puntos de venta</a>
+    </div>
 
     <div class="overlay" id="overlay"></div>
     <aside class="drawer" id="drawer" aria-label="Carrito">
@@ -223,240 +265,218 @@ function injectShell(){
   if(phoneEl) phoneEl.textContent = CONFIG.phoneLabel;
 
   setActiveNav();
+  setupMobileMenu();
 
   const overlay = byId("overlay");
   const drawer = byId("drawer");
   const openBtn = byId("openCartBtn");
   const closeBtn = byId("closeCartBtn");
+  const checkoutBtn = byId("checkoutBtn");
+  const clearBtn = byId("clearBtn");
 
-  function open(){
+  function openCart(){
     overlay.classList.add("show");
     drawer.classList.add("open");
+    document.body.classList.add("noScroll");
     renderCart();
   }
-  function close(){
+  function closeCart(){
     overlay.classList.remove("show");
     drawer.classList.remove("open");
+    document.body.classList.remove("noScroll");
   }
 
-  openBtn?.addEventListener("click", open);
-  closeBtn?.addEventListener("click", close);
-  overlay?.addEventListener("click", close);
+  if(openBtn) openBtn.addEventListener("click", openCart);
+  if(closeBtn) closeBtn.addEventListener("click", closeCart);
+  if(overlay) overlay.addEventListener("click", closeCart);
 
-  byId("checkoutBtn")?.addEventListener("click", checkoutToWhatsApp);
-  byId("clearBtn")?.addEventListener("click", clearCart);
-
-  document.addEventListener("click", (e) => {
-    const t = e.target;
-    const add = t?.getAttribute?.("data-add");
-    const incId = t?.getAttribute?.("data-inc");
-    const decId = t?.getAttribute?.("data-dec");
-    const rmId  = t?.getAttribute?.("data-rm");
-
-    if(add){ addToCart(add); open(); }
-    if(incId){ inc(incId); }
-    if(decId){ dec(decId); }
-    if(rmId){ rm(rmId); }
-  });
+  if(checkoutBtn) checkoutBtn.addEventListener("click", checkoutToWhatsApp);
+  if(clearBtn) clearBtn.addEventListener("click", clearCart);
 
   renderCartBadge();
 }
 
+// ========= CART RENDER =========
 function renderCartBadge(){
+  const countEl = byId("cartCount");
+  if(!countEl) return;
   const cart = loadCart();
-  const el = byId("cartCount");
-  if(el) el.textContent = String(cartCount(cart));
+  countEl.textContent = String(cartCount(cart));
 }
 
 function renderCart(){
-  renderCartBadge();
+  const body = byId("cartBody");
+  const totalEl = byId("cartTotal");
+  if(!body || !totalEl) return;
 
   const cart = loadCart();
   const items = Object.values(cart);
-  const body = byId("cartBody");
-  const totalEl = byId("cartTotal");
-
-  if(totalEl) totalEl.textContent = money(cartTotal(cart));
-  if(!body) return;
 
   if(items.length === 0){
-    body.innerHTML = `<div class="muted">Tu carrito está vacío.</div>`;
+    body.innerHTML = `
+      <div class="emptyState">
+        <div class="emoji">🧊</div>
+        <b>Tu carrito está vacío</b>
+        <p class="muted">Agrega productos y luego envía tu pedido por WhatsApp.</p>
+      </div>
+    `;
+    totalEl.textContent = "$0.00";
+    renderCartBadge();
     return;
   }
 
   body.innerHTML = items.map(it => {
-    const p = PRODUCTS.find(x => x.id === it.id);
-    const img = p?.img || "images/logo.jpg";
-    const unit = it.unit ? ` ${it.unit}` : "";
-
+    const sub = it.qty * it.price;
     return `
       <div class="cartItem">
         <div class="ciTop">
-          <div style="display:flex; gap:12px; align-items:flex-start;">
-            <div class="ciThumb">
-              <img src="${img}" alt="${it.name}" loading="lazy"
-                   onerror="this.onerror=null; this.src='images/logo.jpg';">
-            </div>
-
-            <div>
-              <div class="ciName">${it.name}</div>
-              <div class="muted" style="margin-top:6px;">${money(it.price)}${unit}</div>
-            </div>
+          <div>
+            <div class="ciName">${it.name}</div>
+            <div class="muted">${money(it.price)} ${it.unit || ""}</div>
           </div>
-
-          <div class="price">${money(it.qty * it.price)}</div>
+          <button class="iconBtn" data-rm="${it.id}" aria-label="Quitar">✕</button>
         </div>
 
         <div class="ciRow">
-          <div class="qty">
-            <button data-dec="${it.id}" type="button" aria-label="Reducir">−</button>
+          <div class="qty" aria-label="Cantidad">
+            <button type="button" data-dec="${it.id}" aria-label="Menos">−</button>
             <b>${it.qty}</b>
-            <button data-inc="${it.id}" type="button" aria-label="Aumentar">+</button>
+            <button type="button" data-inc="${it.id}" aria-label="Más">+</button>
           </div>
-          <button class="btn" data-rm="${it.id}" type="button">Quitar</button>
+          <b>${money(sub)}</b>
         </div>
       </div>
     `;
   }).join("");
-}
 
-// ========= HOME SLIDER =========
-function initHomeSlider(){
-  const slider = byId("homeSlider");
-  if(!slider) return;
+  totalEl.textContent = money(cartTotal(cart));
+  renderCartBadge();
 
-  const slides = Array.from(slider.querySelectorAll(".slide"));
-  const dotsWrap = byId("sliderDots");
-  const prevBtn = byId("prevSlide");
-  const nextBtn = byId("nextSlide");
-
-  if(slides.length === 0) return;
-
-  let idx = 0;
-
-  function setActive(i){
-    idx = (i + slides.length) % slides.length;
-    slides.forEach((s, k) => s.classList.toggle("active", k === idx));
-
-    const dots = dotsWrap ? Array.from(dotsWrap.querySelectorAll(".dot")) : [];
-    dots.forEach((d, k) => d.classList.toggle("active", k === idx));
-  }
-
-  if(dotsWrap){
-    dotsWrap.innerHTML = slides
-      .map((_, i) => `<span class="dot" data-dot="${i}" aria-label="Ir a imagen ${i+1}"></span>`)
-      .join("");
-
-    dotsWrap.addEventListener("click", (e) => {
-      const d = e.target?.getAttribute?.("data-dot");
-      if(d !== null && d !== undefined) setActive(Number(d));
-    });
-  }
-
-  prevBtn?.addEventListener("click", () => setActive(idx - 1));
-  nextBtn?.addEventListener("click", () => setActive(idx + 1));
-
-  setActive(0);
-
-  let timer = setInterval(() => setActive(idx + 1), 4000);
-  slider.addEventListener("mouseenter", () => clearInterval(timer));
-  slider.addEventListener("mouseleave", () => {
-    timer = setInterval(() => setActive(idx + 1), 4000);
-  });
+  body.querySelectorAll("[data-inc]").forEach(b => b.addEventListener("click", () => inc(b.dataset.inc)));
+  body.querySelectorAll("[data-dec]").forEach(b => b.addEventListener("click", () => dec(b.dataset.dec)));
+  body.querySelectorAll("[data-rm]").forEach(b => b.addEventListener("click", () => rm(b.dataset.rm)));
 }
 
 // ========= PRODUCTS PAGE =========
 function renderProducts(){
-  const wrapCal = byId("gridCalamar");
-  const wrapCam = byId("gridCamarones");
-  const wrapEsp = byId("gridEspeciales");
+  const gridCal = byId("gridCalamar");
+  const gridCam = byId("gridCamarones");
+  const gridEsp = byId("gridEspeciales");
 
   function card(p){
-    const note = p.note ? `<div class="muted">${p.note}</div>` : "";
-    const unit = p.unit ? ` ${p.unit}` : "";
     return `
-      <div class="prod">
-        <div class="pimg">
-          <img src="${p.img}" alt="${p.name}" loading="lazy">
+      <article class="pCard">
+        <div class="pImg">
+          <img src="${p.img}" alt="${p.name}" loading="lazy" onerror="this.src='images/logo.jpg'">
         </div>
-        <div class="pb">
-          <div class="meta">
-            <span class="badge2">${p.cat.toUpperCase()}</span>
-            <span class="price">${money(p.price)}${unit}</span>
+        <div class="pBody">
+          <div class="pTop">
+            <h3>${p.name}</h3>
+            <div class="price">${money(p.price)} <span>${p.unit || ""}</span></div>
           </div>
-          <div class="name">${p.name}</div>
-          ${note}
-          <button class="btn primary" data-add="${p.id}" type="button">Agregar al carrito</button>
+          ${p.note ? `<div class="note">${p.note}</div>` : ``}
+          <button class="btn primary full" data-add="${p.id}" type="button">Agregar al carrito</button>
         </div>
-      </div>
+      </article>
     `;
   }
 
-  if(wrapCal) wrapCal.innerHTML = PRODUCTS.filter(p => p.cat==="calamar").map(card).join("");
-  if(wrapCam) wrapCam.innerHTML = PRODUCTS.filter(p => p.cat==="camarones").map(card).join("");
-  if(wrapEsp) wrapEsp.innerHTML = PRODUCTS.filter(p => p.cat==="especiales").map(card).join("");
-
-  const params = new URLSearchParams(location.search);
-  const cat = (params.get("cat") || "").toLowerCase();
-  const targetId =
-    cat === "calamar" ? "secCalamar" :
-    cat === "camarones" ? "secCamarones" :
-    cat === "especiales" ? "secEspeciales" : null;
-
-  if(targetId){
-    byId(targetId)?.scrollIntoView({behavior:"smooth", block:"start"});
+  if(gridCal){
+    const list = PRODUCTS.filter(p => p.cat === "calamar");
+    gridCal.innerHTML = list.map(card).join("");
   }
-}
+  if(gridCam){
+    const list = PRODUCTS.filter(p => p.cat === "camarones");
+    gridCam.innerHTML = list.map(card).join("");
+  }
+  if(gridEsp){
+    const list = PRODUCTS.filter(p => p.cat === "especiales");
+    gridEsp.innerHTML = list.map(card).join("");
+  }
 
-// ========= PAGE TRANSITION + LOADER =========
-function setupTransitions(){
-  requestAnimationFrame(() => document.body.classList.add("page-ready"));
-
-  document.addEventListener("click", (e) => {
-    const a = e.target?.closest?.("a[data-link]");
-    if(!a) return;
-
-    const href = a.getAttribute("href");
-    if(!href) return;
-
-    if(a.target === "_blank") return;
-    if(href.startsWith("http")) return;
-    if(href.startsWith("#")) return;
-    if(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-
-    e.preventDefault();
-    document.body.classList.add("page-leave");
-
-    setTimeout(() => {
-      window.location.href = href;
-    }, 160);
+  document.querySelectorAll("[data-add]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      addToCart(btn.dataset.add);
+      // small feedback
+      btn.textContent = "Agregado ✅";
+      setTimeout(() => btn.textContent = "Agregar al carrito", 850);
+    });
   });
 }
 
-function hideLoaderAfterMinTime(minMs = 3000){
-  const loader = byId("pageLoader");
-  if(!loader) return;
+// ========= HOME SLIDER =========
+function setupSlider(){
+  const slider = byId("homeSlider");
+  if(!slider) return;
 
-  const start = Date.now();
+  const slides = Array.from(slider.querySelectorAll(".slide"));
+  const prev = byId("prevSlide");
+  const next = byId("nextSlide");
+  const dotsWrap = byId("sliderDots");
 
-  function done(){
-    const elapsed = Date.now() - start;
-    const wait = Math.max(0, minMs - elapsed);
-    setTimeout(() => loader.classList.add("hide"), wait);
+  let idx = 0;
+  function go(n){
+    idx = (n + slides.length) % slides.length;
+    slides.forEach((s,i) => s.classList.toggle("active", i === idx));
+    if(dotsWrap){
+      dotsWrap.querySelectorAll("button").forEach((b,i) => b.classList.toggle("active", i === idx));
+    }
   }
 
-  if(document.readyState === "complete") done();
-  else window.addEventListener("load", done, { once:true });
+  if(dotsWrap){
+    dotsWrap.innerHTML = slides.map((_,i) => `<button class="dot ${i===0?"active":""}" aria-label="Ir a slide ${i+1}"></button>`).join("");
+    dotsWrap.querySelectorAll("button").forEach((b,i) => b.addEventListener("click", () => go(i)));
+  }
+
+  if(prev) prev.addEventListener("click", () => go(idx - 1));
+  if(next) next.addEventListener("click", () => go(idx + 1));
+
+  // auto-play (desktop + mobile)
+  let timer = setInterval(() => go(idx + 1), 4500);
+
+  // pause on interaction
+  slider.addEventListener("pointerdown", () => { clearInterval(timer); timer = setInterval(() => go(idx + 1), 4500); }, {passive:true});
+}
+
+// ========= FOOTER SOCIAL LINKS =========
+function setupFooterLinks(){
+  const fb = byId("fbCircle");
+  const ig = byId("igCircle");
+  const wa = byId("waCircle");
+
+  if(fb) fb.href = CONFIG.facebookUrl || "#";
+  if(ig) ig.href = CONFIG.instagramUrl || "#";
+
+  if(wa){
+    const link = waLink("Hola! Me gustaría hacer un pedido.");
+    wa.href = link || "#";
+  }
+}
+
+// ========= LOCATIONS PAGE =========
+function setupLocations(){
+  const btn = byId("orderNowBtn");
+  if(!btn) return;
+
+  btn.addEventListener("click", () => {
+    const link = waLink(quickOrderMessage());
+    if(link) window.open(link, "_blank");
+  });
+}
+
+// ========= LOADER =========
+function hideLoaderSoon(){
+  const el = byId("pageLoader");
+  if(!el) return;
+  setTimeout(() => el.classList.add("hide"), 450);
 }
 
 // ========= INIT =========
-function init(){
-  setupTransitions();
+document.addEventListener("DOMContentLoaded", () => {
   injectShell();
-  initHomeSlider();
+  setupFooterLinks();
+  setupSlider();
   renderProducts();
-  wireSocialLinks();        // ✅ makes footer icons work
-  hideLoaderAfterMinTime(3000);
-}
-
-document.addEventListener("DOMContentLoaded", init);
+  setupLocations();
+  hideLoaderSoon();
+});

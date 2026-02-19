@@ -1,4 +1,4 @@
-/* =========================
+* =========================
    Mariscos Express 365
    app.js (FULL REWRITE)
 ========================= */
@@ -10,7 +10,7 @@ const CONFIG = {
   phoneLabel: "+1 (214) 394-4223",
 
   // Put your real links here later
-  facebookUrl: "https://facebook.com/",
+  facebookUrl: "https://www.facebook.com/profile.php?id=61556986174642",
   instagramUrl: "https://instagram.com/"
 };
 

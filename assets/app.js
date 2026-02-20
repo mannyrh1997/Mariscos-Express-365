@@ -1,20 +1,34 @@
-/* =========================
-   Mariscos Express 365
-   app.js (FULL REWRITE)
-========================= */
+/* ==========================================
+   Mariscos Express 365 — app.js (clean v4)
+   - Shell (header/nav/cart) injected on all pages
+   - Mobile nav drawer + overlay
+   - Cart drawer + WhatsApp checkout
+   - Home slider (if present)
+   - Loader: min 3.5s, smooth exit
+========================================== */
 
-// ========= CONFIG =========
+"use strict";
+
+/* ========= CONFIG ========= */
 const CONFIG = {
-  // WhatsApp needs country code
+  brand: "Mariscos Express 365",
+
+  // WhatsApp (needs country code)
   whatsappNumber: "+12143944223",
   phoneLabel: "+1 (214) 394-4223",
 
-  // Put your real links here later
+  // Social
   facebookUrl: "https://www.facebook.com/profile.php?id=61556986174642",
-  instagramUrl: "https://instagram.com/"
+  instagramUrl: "https://instagram.com/",
+
+  // Loader
+  loaderMinMs: 3500,
+
+  // Slider autoplay
+  sliderAutoMs: 4500,
 };
 
-// ========= PRODUCTS (ONLY YOUR LIST) =========
+/* ========= PRODUCTS ========= */
 const PRODUCTS = [
   // CALAMAR
   { id:"cal_aros",   cat:"calamar",   name:"Aros de Calamar",        price:7.99, unit:"/ libra", img:"images/CalamarArosFrescos.jpg" },
@@ -40,43 +54,94 @@ const PRODUCTS = [
   }
 ];
 
-// ========= UTILS =========
-function money(n){ return "$" + Number(n).toFixed(2); }
-function digitsOnly(s){ return (s || "").replace(/\D/g,""); }
+/* ========= HELPERS ========= */
+const $  = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
 function byId(id){ return document.getElementById(id); }
+
 function pageName(){
   return (location.pathname.split("/").pop() || "index.html").toLowerCase();
 }
 
-// ========= CART (localStorage) =========
-const CART_KEY = "me365_cart_v3";
+function money(n){
+  return "$" + Number(n).toFixed(2);
+}
+
+function digitsOnly(s){
+  return String(s || "").replace(/\D/g, "");
+}
+
+function safeSetHref(el, url){
+  if(!el) return;
+  el.href = url && url.trim() ? url.trim() : "#";
+}
+
+/* ========= LOADER (min duration + ready) ========= */
+let _loaderStart = 0;
+function loaderStart(){
+  _loaderStart = Date.now();
+}
+function loaderFinish(){
+  const el = byId("pageLoader");
+  if(!el) return;
+
+  const elapsed = Date.now() - _loaderStart;
+  const wait = Math.max(0, CONFIG.loaderMinMs - elapsed);
+
+  setTimeout(() => {
+    el.classList.add("hide");
+    // allow transition to complete then remove from a11y flow
+    setTimeout(() => { el.style.display = "none"; }, 500);
+  }, wait);
+}
+
+/* ========= CART ========= */
+const CART_KEY = "me365_cart_v4";
+
 function loadCart(){
-  try{
+  try {
     const raw = localStorage.getItem(CART_KEY);
     return raw ? JSON.parse(raw) : {};
-  }catch{ return {}; }
+  } catch {
+    return {};
+  }
 }
-function saveCart(cartObj){ localStorage.setItem(CART_KEY, JSON.stringify(cartObj)); }
-function cartCount(cartObj){ return Object.values(cartObj).reduce((sum, it) => sum + it.qty, 0); }
-function cartTotal(cartObj){ return Object.values(cartObj).reduce((sum, it) => sum + it.qty * it.price, 0); }
+function saveCart(cart){
+  localStorage.setItem(CART_KEY, JSON.stringify(cart));
+}
+function cartItems(cart){
+  return Object.values(cart);
+}
+function cartCount(cart){
+  return cartItems(cart).reduce((sum, it) => sum + it.qty, 0);
+}
+function cartTotal(cart){
+  return cartItems(cart).reduce((sum, it) => sum + it.qty * it.price, 0);
+}
 
-function addToCart(id){
-  const p = PRODUCTS.find(x => x.id === id);
+function addToCart(productId, qty=1){
+  const p = PRODUCTS.find(x => x.id === productId);
   if(!p) return;
+
   const cart = loadCart();
-  if(cart[id]) cart[id].qty += 1;
-  else cart[id] = { id:p.id, name:p.name, price:p.price, unit:p.unit || "", qty:1 };
+  if(!cart[productId]){
+    cart[productId] = { id:p.id, name:p.name, price:p.price, unit:p.unit || "", qty:0 };
+  }
+  cart[productId].qty += qty;
+
   saveCart(cart);
   renderCartBadge();
 }
-function inc(id){
+
+function incItem(id){
   const cart = loadCart();
   if(!cart[id]) return;
   cart[id].qty += 1;
   saveCart(cart);
   renderCart();
 }
-function dec(id){
+function decItem(id){
   const cart = loadCart();
   if(!cart[id]) return;
   cart[id].qty -= 1;
@@ -84,7 +149,7 @@ function dec(id){
   saveCart(cart);
   renderCart();
 }
-function rm(id){
+function removeItem(id){
   const cart = loadCart();
   delete cart[id];
   saveCart(cart);
@@ -95,23 +160,17 @@ function clearCart(){
   renderCart();
 }
 
-// ========= WHATSAPP =========
+/* ========= WHATSAPP ========= */
 function waLink(message){
   const phone = digitsOnly(CONFIG.whatsappNumber);
-  if(!phone){
-    alert("Falta configurar el número de WhatsApp en assets/app.js");
-    return null;
-  }
+  if(!phone) return null;
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }
 
-function checkoutToWhatsApp(){
+function buildOrderMessage(){
   const cart = loadCart();
-  const items = Object.values(cart);
-  if(items.length === 0){
-    alert("Tu carrito está vacío.");
-    return;
-  }
+  const items = cartItems(cart);
+  if(items.length === 0) return null;
 
   let total = 0;
   const lines = items.map(it => {
@@ -120,8 +179,7 @@ function checkoutToWhatsApp(){
     return `• ${it.qty} x ${it.name} (${money(it.price)}${it.unit ? " " + it.unit : ""}) = ${money(sub)}`;
   });
 
-  const msg =
-`Hola! Quiero hacer un pedido:
+  return `Hola! Quiero hacer un pedido:
 
 ${lines.join("\n")}
 
@@ -130,67 +188,19 @@ Total: ${money(total)}
 Nombre:
 Dirección / zona:
 Hora preferida:`;
+}
 
+function checkoutToWhatsApp(){
+  const msg = buildOrderMessage();
+  if(!msg){
+    alert("Tu carrito está vacío.");
+    return;
+  }
   const link = waLink(msg);
-  if(link) window.open(link, "_blank");
+  if(link) window.open(link, "_blank", "noopener");
 }
 
-function quickOrderMessage(){
-  return `Hola! Quiero hacer un pedido. ¿Me puedes confirmar cobertura y tiempo de entrega?`;
-}
-
-// ========= NAV ACTIVE =========
-function setActiveNav(){
-  const p = pageName();
-  document.querySelectorAll('nav a[data-page]').forEach(a => {
-    const target = a.getAttribute("data-page");
-    a.classList.toggle("active", target === p);
-  });
-
-  // Also highlight in mobile menu
-  document.querySelectorAll('.mobileNav a[data-page]').forEach(a => {
-    const target = a.getAttribute("data-page");
-    a.classList.toggle("active", target === p);
-  });
-}
-
-// ========= MOBILE MENU =========
-function setupMobileMenu(){
-  const menuBtn = byId("menuBtn");
-  const mobileNav = byId("mobileNav");
-  const navOverlay = byId("navOverlay");
-
-  if(!menuBtn || !mobileNav || !navOverlay) return;
-
-  function openMenu(){
-    mobileNav.classList.add("open");
-    navOverlay.classList.add("show");
-    menuBtn.setAttribute("aria-expanded", "true");
-    document.body.classList.add("noScroll");
-  }
-  function closeMenu(){
-    mobileNav.classList.remove("open");
-    navOverlay.classList.remove("show");
-    menuBtn.setAttribute("aria-expanded", "false");
-    document.body.classList.remove("noScroll");
-  }
-  function toggleMenu(){
-    mobileNav.classList.contains("open") ? closeMenu() : openMenu();
-  }
-
-  menuBtn.addEventListener("click", toggleMenu);
-  navOverlay.addEventListener("click", closeMenu);
-
-  mobileNav.addEventListener("click", (e) => {
-    if(e.target.closest("a")) closeMenu();
-  });
-
-  document.addEventListener("keydown", (e) => {
-    if(e.key === "Escape") closeMenu();
-  });
-}
-
-// ========= HEADER + CART DRAWER =========
+/* ========= SHELL (HEADER / NAV / DRAWERS) ========= */
 function injectShell(){
   const shell = byId("shell");
   if(!shell) return;
@@ -198,65 +208,79 @@ function injectShell(){
   shell.innerHTML = `
     <div class="topbar">
       <div class="container">
-        <div class="row">
-          <div class="pill">WhatsApp: <b id="phoneLabel"></b></div>
-          <div class="pill link">Delivery en Puerto de La Libertad y alrededores</div>
+        <div class="toprow">
+          <div class="chip">WhatsApp: <b id="phoneLabel"></b></div>
+          <div class="chip chip--pink">Delivery en Puerto de La Libertad y alrededores</div>
         </div>
       </div>
     </div>
 
-    <header>
+    <header class="siteHeader">
       <div class="container">
-        <div class="nav">
+        <div class="headerRow">
+
           <a class="brand" href="index.html" data-link>
-            <img src="images/logo.jpg" alt="Logo de Mariscos Express 365" onerror="this.style.display='none'">
-            <div class="name">
-              <span>Mariscos Express 365</span>
-              <span>Distribuidora local</span>
+            <img class="brandLogo" src="images/logo.jpg" alt="Logo de ${CONFIG.brand}">
+            <div class="brandText">
+              <span class="brandName">${CONFIG.brand}</span>
+              <span class="brandTag">Distribuidora local</span>
             </div>
           </a>
 
-          <nav aria-label="Menú">
-            <ul>
-              <li><a href="index.html" data-page="index.html" data-link>Inicio</a></li>
-              <li><a href="products.html" data-page="products.html" data-link>Productos</a></li>
-              <li><a href="locations.html" data-page="locations.html" data-link>Puntos de venta</a></li>
-            </ul>
+          <nav class="navDesk" aria-label="Menú principal">
+            <a href="index.html" data-page="index.html" data-link>Inicio</a>
+            <a href="products.html" data-page="products.html" data-link>Productos</a>
+            <a href="locations.html" data-page="locations.html" data-link>Puntos de venta</a>
           </nav>
 
-          <div class="actions">
-            <button class="menuBtn" id="menuBtn" type="button" aria-label="Abrir menú" aria-expanded="false">
-              ☰
+          <div class="headerActions">
+            <button class="iconBtn menuBtn" id="menuBtn" type="button" aria-label="Abrir menú" aria-expanded="false">
+              <span aria-hidden="true">☰</span>
             </button>
 
-            <button class="btn primary cartBtn" id="openCartBtn" type="button" aria-label="Abrir carrito">
-              🛒 Carrito
-              <span class="cartCount" id="cartCount">0</span>
+            <button class="btn btn--primary cartBtn" id="openCartBtn" type="button" aria-label="Abrir carrito">
+              🛒 <span class="hideSm">Carrito</span>
+              <span class="badge" id="cartCount">0</span>
             </button>
           </div>
+
         </div>
       </div>
     </header>
 
-    <!-- Mobile menu overlay + panel -->
-    <div class="navOverlay" id="navOverlay"></div>
-    <div class="mobileNav" id="mobileNav" aria-label="Menú móvil">
-      <a href="index.html" data-page="index.html" data-link>Inicio</a>
-      <a href="products.html" data-page="products.html" data-link>Productos</a>
-      <a href="locations.html" data-page="locations.html" data-link>Puntos de venta</a>
-    </div>
-
-    <div class="overlay" id="overlay"></div>
-    <aside class="drawer" id="drawer" aria-label="Carrito">
-      <div class="drawerHeader">
-        <b>Tu carrito</b>
-        <button class="btn" id="closeCartBtn" type="button">Cerrar</button>
+    <!-- Mobile nav drawer -->
+    <div class="overlay" id="navOverlay" hidden></div>
+    <aside class="drawer drawer--left" id="navDrawer" aria-label="Menú móvil" aria-hidden="true">
+      <div class="drawerHead">
+        <b>Menú</b>
+        <button class="iconBtn" id="closeNavBtn" type="button" aria-label="Cerrar menú">✕</button>
       </div>
+      <div class="drawerBody">
+        <a class="mLink" href="index.html" data-page="index.html" data-link>Inicio</a>
+        <a class="mLink" href="products.html" data-page="products.html" data-link>Productos</a>
+        <a class="mLink" href="locations.html" data-page="locations.html" data-link>Puntos de venta</a>
+        <div class="drawerDivider"></div>
+        <a class="mLink mLink--soft" id="mobileWhatsApp" href="#" target="_blank" rel="noopener">Pedir por WhatsApp</a>
+      </div>
+    </aside>
+
+    <!-- Cart drawer -->
+    <div class="overlay" id="cartOverlay" hidden></div>
+    <aside class="drawer drawer--right" id="cartDrawer" aria-label="Carrito" aria-hidden="true">
+      <div class="drawerHead">
+        <b>Tu carrito</b>
+        <button class="iconBtn" id="closeCartBtn" type="button" aria-label="Cerrar carrito">✕</button>
+      </div>
+
       <div class="drawerBody" id="cartBody"></div>
-      <div class="drawerFooter">
-        <div class="totals"><span>Total</span><span id="cartTotal">$0.00</span></div>
-        <button class="btn primary" id="checkoutBtn" type="button">Enviar pedido por WhatsApp</button>
-        <button class="btn" id="clearBtn" type="button">Vaciar carrito</button>
+
+      <div class="drawerFoot">
+        <div class="totalsRow">
+          <span>Total</span>
+          <span id="cartTotal">$0.00</span>
+        </div>
+        <button class="btn btn--primary btn--full" id="checkoutBtn" type="button">Enviar pedido por WhatsApp</button>
+        <button class="btn btn--ghost btn--full" id="clearBtn" type="button">Vaciar carrito</button>
       </div>
     </aside>
   `;
@@ -264,44 +288,121 @@ function injectShell(){
   const phoneEl = byId("phoneLabel");
   if(phoneEl) phoneEl.textContent = CONFIG.phoneLabel;
 
-  setActiveNav();
-  setupMobileMenu();
+  // mobile whatsapp quick link
+  const mobileWA = byId("mobileWhatsApp");
+  if(mobileWA){
+    const link = waLink("Hola! Me gustaría hacer un pedido.");
+    safeSetHref(mobileWA, link || "#");
+  }
 
-  const overlay = byId("overlay");
-  const drawer = byId("drawer");
+  setActiveLinks();
+  setupNavDrawer();
+  setupCartDrawer();
+  renderCartBadge();
+}
+
+/* ========= ACTIVE LINKS ========= */
+function setActiveLinks(){
+  const p = pageName();
+  $$("[data-page]").forEach(a => {
+    a.classList.toggle("active", (a.getAttribute("data-page") || "").toLowerCase() === p);
+  });
+}
+
+/* ========= DRAWER CONTROLLER ========= */
+function lockScroll(locked){
+  document.body.classList.toggle("noScroll", !!locked);
+}
+
+function openDrawer({ drawerEl, overlayEl, openerEl }){
+  if(!drawerEl || !overlayEl) return;
+
+  overlayEl.hidden = false;
+  drawerEl.classList.add("open");
+  drawerEl.setAttribute("aria-hidden", "false");
+  overlayEl.classList.add("show");
+  lockScroll(true);
+
+  if(openerEl) openerEl.setAttribute("aria-expanded", "true");
+}
+
+function closeDrawer({ drawerEl, overlayEl, openerEl }){
+  if(!drawerEl || !overlayEl) return;
+
+  drawerEl.classList.remove("open");
+  drawerEl.setAttribute("aria-hidden", "true");
+  overlayEl.classList.remove("show");
+  lockScroll(false);
+
+  if(openerEl) openerEl.setAttribute("aria-expanded", "false");
+
+  // wait for CSS transition before hiding overlay
+  setTimeout(() => { overlayEl.hidden = true; }, 220);
+}
+
+/* ========= MOBILE NAV ========= */
+function setupNavDrawer(){
+  const btn = byId("menuBtn");
+  const overlay = byId("navOverlay");
+  const drawer = byId("navDrawer");
+  const closeBtn = byId("closeNavBtn");
+  if(!btn || !overlay || !drawer || !closeBtn) return;
+
+  const api = {
+    open: () => openDrawer({ drawerEl: drawer, overlayEl: overlay, openerEl: btn }),
+    close: () => closeDrawer({ drawerEl: drawer, overlayEl: overlay, openerEl: btn }),
+    toggle: () => drawer.classList.contains("open") ? api.close() : api.open()
+  };
+
+  btn.addEventListener("click", api.toggle);
+  closeBtn.addEventListener("click", api.close);
+  overlay.addEventListener("click", api.close);
+
+  drawer.addEventListener("click", (e) => {
+    if(e.target.closest("a")) api.close();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if(e.key === "Escape") api.close();
+  });
+}
+
+/* ========= CART DRAWER ========= */
+function setupCartDrawer(){
   const openBtn = byId("openCartBtn");
   const closeBtn = byId("closeCartBtn");
+  const overlay = byId("cartOverlay");
+  const drawer = byId("cartDrawer");
   const checkoutBtn = byId("checkoutBtn");
   const clearBtn = byId("clearBtn");
 
-  function openCart(){
-    overlay.classList.add("show");
-    drawer.classList.add("open");
-    document.body.classList.add("noScroll");
-    renderCart();
-  }
-  function closeCart(){
-    overlay.classList.remove("show");
-    drawer.classList.remove("open");
-    document.body.classList.remove("noScroll");
-  }
+  if(!openBtn || !closeBtn || !overlay || !drawer) return;
 
-  if(openBtn) openBtn.addEventListener("click", openCart);
-  if(closeBtn) closeBtn.addEventListener("click", closeCart);
-  if(overlay) overlay.addEventListener("click", closeCart);
+  const api = {
+    open: () => {
+      openDrawer({ drawerEl: drawer, overlayEl: overlay });
+      renderCart();
+    },
+    close: () => closeDrawer({ drawerEl: drawer, overlayEl: overlay })
+  };
+
+  openBtn.addEventListener("click", api.open);
+  closeBtn.addEventListener("click", api.close);
+  overlay.addEventListener("click", api.close);
 
   if(checkoutBtn) checkoutBtn.addEventListener("click", checkoutToWhatsApp);
   if(clearBtn) clearBtn.addEventListener("click", clearCart);
 
-  renderCartBadge();
+  document.addEventListener("keydown", (e) => {
+    if(e.key === "Escape") api.close();
+  });
 }
 
-// ========= CART RENDER =========
+/* ========= CART RENDER ========= */
 function renderCartBadge(){
-  const countEl = byId("cartCount");
-  if(!countEl) return;
-  const cart = loadCart();
-  countEl.textContent = String(cartCount(cart));
+  const el = byId("cartCount");
+  if(!el) return;
+  el.textContent = String(cartCount(loadCart()));
 }
 
 function renderCart(){
@@ -310,14 +411,14 @@ function renderCart(){
   if(!body || !totalEl) return;
 
   const cart = loadCart();
-  const items = Object.values(cart);
+  const items = cartItems(cart);
 
   if(items.length === 0){
     body.innerHTML = `
-      <div class="emptyState">
-        <div class="emoji">🧊</div>
-        <b>Tu carrito está vacío</b>
-        <p class="muted">Agrega productos y luego envía tu pedido por WhatsApp.</p>
+      <div class="empty">
+        <div class="emptyEmoji" aria-hidden="true">🧊</div>
+        <div class="emptyTitle">Tu carrito está vacío</div>
+        <div class="emptyText">Agrega productos y luego envía tu pedido por WhatsApp.</div>
       </div>
     `;
     totalEl.textContent = "$0.00";
@@ -329,21 +430,21 @@ function renderCart(){
     const sub = it.qty * it.price;
     return `
       <div class="cartItem">
-        <div class="ciTop">
-          <div>
-            <div class="ciName">${it.name}</div>
-            <div class="muted">${money(it.price)} ${it.unit || ""}</div>
+        <div class="cartTop">
+          <div class="cartMeta">
+            <div class="cartName">${it.name}</div>
+            <div class="cartSub">${money(it.price)} ${it.unit || ""}</div>
           </div>
-          <button class="iconBtn" data-rm="${it.id}" aria-label="Quitar">✕</button>
+          <button class="iconBtn" data-rm="${it.id}" type="button" aria-label="Quitar">✕</button>
         </div>
 
-        <div class="ciRow">
-          <div class="qty" aria-label="Cantidad">
-            <button type="button" data-dec="${it.id}" aria-label="Menos">−</button>
-            <b>${it.qty}</b>
-            <button type="button" data-inc="${it.id}" aria-label="Más">+</button>
+        <div class="cartBottom">
+          <div class="qty">
+            <button type="button" class="qtyBtn" data-dec="${it.id}" aria-label="Menos">−</button>
+            <div class="qtyNum" aria-label="Cantidad">${it.qty}</div>
+            <button type="button" class="qtyBtn" data-inc="${it.id}" aria-label="Más">+</button>
           </div>
-          <b>${money(sub)}</b>
+          <div class="cartPrice">${money(sub)}</div>
         </div>
       </div>
     `;
@@ -352,131 +453,139 @@ function renderCart(){
   totalEl.textContent = money(cartTotal(cart));
   renderCartBadge();
 
-  body.querySelectorAll("[data-inc]").forEach(b => b.addEventListener("click", () => inc(b.dataset.inc)));
-  body.querySelectorAll("[data-dec]").forEach(b => b.addEventListener("click", () => dec(b.dataset.dec)));
-  body.querySelectorAll("[data-rm]").forEach(b => b.addEventListener("click", () => rm(b.dataset.rm)));
+  // Events
+  $$("[data-inc]", body).forEach(b => b.addEventListener("click", () => incItem(b.dataset.inc)));
+  $$("[data-dec]", body).forEach(b => b.addEventListener("click", () => decItem(b.dataset.dec)));
+  $$("[data-rm]", body).forEach(b => b.addEventListener("click", () => removeItem(b.dataset.rm)));
 }
 
-// ========= PRODUCTS PAGE =========
+/* ========= PRODUCTS PAGE ========= */
 function renderProducts(){
   const gridCal = byId("gridCalamar");
   const gridCam = byId("gridCamarones");
   const gridEsp = byId("gridEspeciales");
 
-  function card(p){
-    return `
-      <article class="pCard">
-        <div class="pImg">
-          <img src="${p.img}" alt="${p.name}" loading="lazy" onerror="this.src='images/logo.jpg'">
-        </div>
-        <div class="pBody">
-          <div class="pTop">
-            <h3>${p.name}</h3>
-            <div class="price">${money(p.price)} <span>${p.unit || ""}</span></div>
-          </div>
-          ${p.note ? `<div class="note">${p.note}</div>` : ``}
-          <button class="btn primary full" data-add="${p.id}" type="button">Agregar al carrito</button>
-        </div>
-      </article>
-    `;
-  }
+  // If not on products page, stop.
+  if(!gridCal && !gridCam && !gridEsp) return;
 
-  if(gridCal){
-    const list = PRODUCTS.filter(p => p.cat === "calamar");
-    gridCal.innerHTML = list.map(card).join("");
-  }
-  if(gridCam){
-    const list = PRODUCTS.filter(p => p.cat === "camarones");
-    gridCam.innerHTML = list.map(card).join("");
-  }
-  if(gridEsp){
-    const list = PRODUCTS.filter(p => p.cat === "especiales");
-    gridEsp.innerHTML = list.map(card).join("");
-  }
+  const card = (p) => `
+    <article class="pCard">
+      <div class="pImg">
+        <img src="${p.img}" alt="${p.name}" loading="lazy" onerror="this.src='images/logo.jpg'">
+      </div>
+      <div class="pBody">
+        <div class="pRow">
+          <h3 class="pName">${p.name}</h3>
+          <div class="pPrice">${money(p.price)} <span>${p.unit || ""}</span></div>
+        </div>
+        ${p.note ? `<div class="pNote">${p.note}</div>` : ``}
+        <button class="btn btn--primary btn--full" data-add="${p.id}" type="button">Agregar al carrito</button>
+      </div>
+    </article>
+  `;
 
-  document.querySelectorAll("[data-add]").forEach(btn => {
+  if(gridCal) gridCal.innerHTML = PRODUCTS.filter(p => p.cat === "calamar").map(card).join("");
+  if(gridCam) gridCam.innerHTML = PRODUCTS.filter(p => p.cat === "camarones").map(card).join("");
+  if(gridEsp) gridEsp.innerHTML = PRODUCTS.filter(p => p.cat === "especiales").map(card).join("");
+
+  $$("[data-add]").forEach(btn => {
     btn.addEventListener("click", () => {
-      addToCart(btn.dataset.add);
-      // small feedback
+      addToCart(btn.dataset.add, 1);
+      // tiny feedback
+      btn.classList.add("pulse");
+      const prev = btn.textContent;
       btn.textContent = "Agregado ✅";
-      setTimeout(() => btn.textContent = "Agregar al carrito", 850);
+      setTimeout(() => { btn.textContent = prev; btn.classList.remove("pulse"); }, 900);
     });
   });
 }
 
-// ========= HOME SLIDER =========
+/* ========= FOOTER LINKS ========= */
+function setupFooterLinks(){
+  safeSetHref(byId("fbCircle"), CONFIG.facebookUrl);
+  safeSetHref(byId("igCircle"), CONFIG.instagramUrl);
+
+  const wa = byId("waCircle");
+  if(wa){
+    safeSetHref(wa, waLink("Hola! Me gustaría hacer un pedido.") || "#");
+  }
+}
+
+/* ========= LOCATIONS PAGE ========= */
+function setupLocations(){
+  const btn = byId("orderNowBtn");
+  if(!btn) return;
+  btn.addEventListener("click", () => {
+    const link = waLink("Hola! Quiero hacer un pedido. ¿Me puedes confirmar cobertura y tiempo de entrega?");
+    if(link) window.open(link, "_blank", "noopener");
+  });
+}
+
+/* ========= HOME SLIDER ========= */
 function setupSlider(){
   const slider = byId("homeSlider");
   if(!slider) return;
 
-  const slides = Array.from(slider.querySelectorAll(".slide"));
+  const slides = $$(".slide", slider);
+  if(slides.length <= 1) return;
+
   const prev = byId("prevSlide");
   const next = byId("nextSlide");
   const dotsWrap = byId("sliderDots");
 
   let idx = 0;
+  let timer = null;
+
+  function apply(){
+    slides.forEach((s,i)=> s.classList.toggle("active", i === idx));
+    if(dotsWrap){
+      $$(".dot", dotsWrap).forEach((d,i)=> d.classList.toggle("active", i === idx));
+    }
+  }
   function go(n){
     idx = (n + slides.length) % slides.length;
-    slides.forEach((s,i) => s.classList.toggle("active", i === idx));
-    if(dotsWrap){
-      dotsWrap.querySelectorAll("button").forEach((b,i) => b.classList.toggle("active", i === idx));
-    }
+    apply();
+  }
+  function startAuto(){
+    stopAuto();
+    timer = setInterval(()=> go(idx + 1), CONFIG.sliderAutoMs);
+  }
+  function stopAuto(){
+    if(timer) clearInterval(timer);
+    timer = null;
   }
 
   if(dotsWrap){
-    dotsWrap.innerHTML = slides.map((_,i) => `<button class="dot ${i===0?"active":""}" aria-label="Ir a slide ${i+1}"></button>`).join("");
-    dotsWrap.querySelectorAll("button").forEach((b,i) => b.addEventListener("click", () => go(i)));
+    dotsWrap.innerHTML = slides.map((_,i)=> `<button class="dot ${i===0?"active":""}" type="button" aria-label="Ir a slide ${i+1}"></button>`).join("");
+    $$(".dot", dotsWrap).forEach((b,i)=> b.addEventListener("click", ()=> { go(i); startAuto(); }));
   }
 
-  if(prev) prev.addEventListener("click", () => go(idx - 1));
-  if(next) next.addEventListener("click", () => go(idx + 1));
+  if(prev) prev.addEventListener("click", ()=> { go(idx - 1); startAuto(); });
+  if(next) next.addEventListener("click", ()=> { go(idx + 1); startAuto(); });
 
-  // auto-play (desktop + mobile)
-  let timer = setInterval(() => go(idx + 1), 4500);
+  slider.addEventListener("pointerdown", stopAuto, { passive:true });
+  slider.addEventListener("pointerup", startAuto, { passive:true });
+  slider.addEventListener("pointercancel", startAuto, { passive:true });
 
-  // pause on interaction
-  slider.addEventListener("pointerdown", () => { clearInterval(timer); timer = setInterval(() => go(idx + 1), 4500); }, {passive:true});
+  apply();
+  startAuto();
 }
 
-// ========= FOOTER SOCIAL LINKS =========
-function setupFooterLinks(){
-  const fb = byId("fbCircle");
-  const ig = byId("igCircle");
-  const wa = byId("waCircle");
+/* ========= INIT ========= */
+loaderStart();
 
-  if(fb) fb.href = CONFIG.facebookUrl || "#";
-  if(ig) ig.href = CONFIG.instagramUrl || "#";
-
-  if(wa){
-    const link = waLink("Hola! Me gustaría hacer un pedido.");
-    wa.href = link || "#";
-  }
-}
-
-// ========= LOCATIONS PAGE =========
-function setupLocations(){
-  const btn = byId("orderNowBtn");
-  if(!btn) return;
-
-  btn.addEventListener("click", () => {
-    const link = waLink(quickOrderMessage());
-    if(link) window.open(link, "_blank");
-  });
-}
-
-// ========= LOADER =========
-function hideLoaderSoon(){
-  const el = byId("pageLoader");
-  if(!el) return;
-  setTimeout(() => el.classList.add("hide"), 450);
-}
-
-// ========= INIT =========
 document.addEventListener("DOMContentLoaded", () => {
   injectShell();
   setupFooterLinks();
-  setupSlider();
   renderProducts();
   setupLocations();
-  hideLoaderSoon();
+  setupSlider();
+
+  // Ensure loader ends after min duration AND DOM ready
+  loaderFinish();
+});
+
+// Extra safety: if browser delays DOMContentLoaded, still finish loader after full load
+window.addEventListener("load", () => {
+  loaderFinish();
 });

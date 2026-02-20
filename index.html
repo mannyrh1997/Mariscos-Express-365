@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mariscos Express 365 | Inicio</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+
+<body>
+  <!-- Loader -->
+  <div id="pageLoader" class="loader" role="status" aria-live="polite" aria-label="Cargando">
+    <div class="loaderCard">
+      <div class="loaderEmojis" aria-hidden="true">
+        <span>🛥️</span>
+        <span>🦑</span>
+        <span>🐟</span>
+      </div>
+      <div class="loaderText">Cargando mariscos frescos…</div>
+    </div>
+  </div>
+
+  <!-- Injected header/nav/cart/mobile menu -->
+  <div id="shell"></div>
+
+  <main class="page">
+    <div class="container">
+
+      <section class="heroCard card">
+        <div class="heroInner">
+
+          <!-- Left: copy + CTA -->
+          <div>
+            <h1>Mariscos Express 365</h1>
+
+            <p class="sub">
+              Somos una distribuidora local de mariscos de alta calidad con entrega a domicilio.
+              Ofrecemos productos al mayoreo y al por menor, con una gran variedad ideal para tu restaurante o para tu familia.
+              Ya sea que busques abastecer tu negocio o preparar ese platillo especial en casa, tenemos mariscos en diferentes tamaños,
+              presentaciones y cantidades: por unidad, por libra o por paquete, según lo que necesites.
+              Frescura, buen servicio y entregas rápidas para que siempre tengas lo mejor en tu mesa.
+            </p>
+
+            <div class="ctaRow">
+              <a class="btn primary" href="products.html" data-link>Ver productos</a>
+              <a class="btn soft" href="locations.html" data-link>Área de entrega</a>
+            </div>
+          </div>
+
+          <!-- Right: Slider -->
+          <div class="slider" id="homeSlider" aria-label="Galería">
+            <div class="slide active">
+              <img src="images/logo.jpg" alt="Mariscos Express 365">
+            </div>
+            <div class="slide">
+              <img src="images/calamarMain.jpg" alt="Calamar">
+            </div>
+            <div class="slide">
+              <img src="images/mariscadaMix.jpg" alt="Mix para mariscada">
+            </div>
+            <div class="slide">
+              <img src="images/camaronJumbo.jpg" alt="Camarón jumbo">
+            </div>
+            <div class="slide">
+              <img src="images/calamarAros.JPG" alt="Calamar aros">
+            </div>
+
+            <div class="sliderBtns">
+              <button class="sbtn" id="prevSlide" aria-label="Anterior">‹</button>
+              <button class="sbtn" id="nextSlide" aria-label="Siguiente">›</button>
+            </div>
+
+            <div class="sliderOverlay sliderOverlay--dotsOnly">
+              <div class="dots" id="sliderDots" aria-label="Paginación del slider"></div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Categories -->
+      <section class="section">
+        <div class="sectionTitle">
+          <div>
+            <h2>Categorías</h2>
+            <p>Explora por tipo</p>
+          </div>
+        </div>
+
+        <div class="cats">
+          <a class="cat" href="products.html#secCalamar" data-link>
+            <div class="img">🦑 CALAMAR</div>
+            <div class="body">
+              <h3>CALAMAR</h3>
+              <p>Aros • Tubos • Limpio</p>
+            </div>
+          </a>
+
+          <a class="cat" href="products.html#secCamarones" data-link>
+            <div class="img">🦐 CAMARONES</div>
+            <div class="body">
+              <h3>CAMARONES</h3>
+              <p>Grande • Mediano • Cola</p>
+            </div>
+          </a>
+
+          <a class="cat" href="products.html#secEspeciales" data-link>
+            <div class="img">⭐ ESPECIALES</div>
+            <div class="body">
+              <h3>OFERTAS</h3>
+              <p>Mix para mariscada</p>
+            </div>
+          </a>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="simpleFooter">
+    <div class="container">
+      <div class="footerContent">
+
+        <div class="footerLeft">
+          <div class="footerBrand">Mariscos Express 365</div>
+          <div class="footerCopy">© 2026 — Todos los derechos reservados.</div>
+        </div>
+
+        <div class="footerRight" aria-label="Redes sociales">
+          <a class="socialIcon" id="fbCircle" href="#" target="_blank" rel="noopener" aria-label="Facebook">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14 9h3V6h-3c-2.2 0-4 1.8-4 4v3H7v3h3v8h3v-8h3l1-3h-4v-3c0-.6.4-1 1-1z"/>
+            </svg>
+          </a>
+
+          <a class="socialIcon" id="igCircle" href="#" target="_blank" rel="noopener" aria-label="Instagram">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm10 2H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3zm-5 4.5A3.5 3.5 0 1 1 8.5 12 3.5 3.5 0 0 1 12 8.5zm0 2A1.5 1.5 0 1 0 13.5 12 1.5 1.5 0 0 0 12 10.5zM18 6.8a.8.8 0 1 1-.8-.8.8.8 0 0 1 .8.8z"/>
+            </svg>
+          </a>
+
+          <a class="socialIcon" id="waCircle" href="#" target="_blank" rel="noopener" aria-label="WhatsApp">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20.5 3.5A11 11 0 0 0 3.6 17.8L2 22l4.4-1.5A11 11 0 0 0 20.5 3.5zm-8.9 18a9 9 0 0 1-4.6-1.3l-.3-.2-2.6.9.9-2.5-.2-.3A9 9 0 1 1 11.6 21.5zm5.2-6.2c-.3-.1-1.7-.8-2-1s-.5-.1-.7.1-.8 1-.9 1.2-.3.2-.6.1a7.4 7.4 0 0 1-2.2-1.4 8.3 8.3 0 0 1-1.5-1.9c-.2-.3 0-.5.1-.6l.5-.6c.1-.2.2-.3.3-.5.1-.2 0-.3 0-.5s-.7-1.7-1-2.3c-.3-.6-.6-.5-.7-.5H6.7c-.2 0-.5.1-.7.3s-1 1-1 2.5 1 2.9 1.1 3.1c.1.2 2 3.1 4.9 4.3.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 2-1.4.2-.7.2-1.3.1-1.4-.1-.1-.3-.2-.6-.3z"/>
+            </svg>
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/app.js"></script>
+</body>
+</html>
